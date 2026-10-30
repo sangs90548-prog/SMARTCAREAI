@@ -13,3 +13,11 @@
 .externalNativeBuild
 .cxx
 local.properties
+.idea/
+.env
+.env.*
+!.env.example
+__pycache__/
+.venv/
+venv/
+*.pyc

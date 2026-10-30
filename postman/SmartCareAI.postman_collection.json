@@ -1,0 +1,602 @@
+{
+	"info": {
+		"_postman_id": "7b8e1f20-942b-4fa8-a15e-85a21e0329ac",
+		"name": "SmartCareAI Complete API Suite",
+		"description": "Comprehensive Postman test collection for SmartCareAI PHP 8.2+ Backend, MySQL Database, and FastAPI/Google Gemini AI Service.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{authToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost/smartcareai/backend/public",
+			"type": "string"
+		},
+		{
+			"key": "authToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "hospitalId",
+			"value": "HOSP-001",
+			"type": "string"
+		},
+		{
+			"key": "doctorId",
+			"value": "DOC-001",
+			"type": "string"
+		},
+		{
+			"key": "appointmentId",
+			"value": "APT-1001",
+			"type": "string"
+		},
+		{
+			"key": "assessmentId",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. System & Health",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Authentication",
+			"item": [
+				{
+					"name": "User Registration",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200 || pm.response.code === 201) {",
+									"    var res = pm.response.json();",
+									"    if (res.data && res.data.token) {",
+									"        pm.collectionVariables.set('authToken', res.data.token);",
+									"        console.log('Registered and saved authToken.');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"David Miller\",\n    \"email\": \"david.miller@example.com\",\n    \"password\": \"SecurePass2026!\",\n    \"age\": 29,\n    \"gender\": \"Male\",\n    \"blood_type\": \"B+\",\n    \"phone\": \"+1 (555) 789-0123\",\n    \"emergency_contact\": \"+1 (555) 911-0088\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "register"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "User Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var res = pm.response.json();",
+									"    if (res.data && res.data.token) {",
+									"        pm.collectionVariables.set('authToken', res.data.token);",
+									"        console.log('Login successful! Saved authToken.');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"alex.johnson@example.com\",\n    \"password\": \"Password123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current Authenticated User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "me"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "User Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "logout"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. User Profile & Preferences",
+			"item": [
+				{
+					"name": "Retrieve Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/user/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "profile"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Alex Johnson\",\n    \"age\": 33,\n    \"phone\": \"+1 (555) 019-2834\",\n    \"emergency_contact\": \"+1 (555) 911-0022\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/user/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "profile"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Preferences (Reminders & Tips)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"health_reminders_enabled\": 1,\n    \"ai_tips_enabled\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/user/preferences",
+							"host": ["{{baseUrl}}"],
+							"path": ["user", "preferences"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Hospital Management",
+			"item": [
+				{
+					"name": "List All Hospitals",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/hospitals",
+							"host": ["{{baseUrl}}"],
+							"path": ["hospitals"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Search Hospitals",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/hospitals/search?q=General&crowd=LOW",
+							"host": ["{{baseUrl}}"],
+							"path": ["hospitals", "search"],
+							"query": [
+								{ "key": "q", "value": "General" },
+								{ "key": "crowd", "value": "LOW" }
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Hospital Details",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/hospitals/{{hospitalId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["hospitals", "{{hospitalId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Hospital Doctors",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/hospitals/{{hospitalId}}/doctors",
+							"host": ["{{baseUrl}}"],
+							"path": ["hospitals", "{{hospitalId}}", "doctors"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. Doctor Management",
+			"item": [
+				{
+					"name": "List All Doctors",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/doctors",
+							"host": ["{{baseUrl}}"],
+							"path": ["doctors"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Search Doctors",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/doctors/search?q=Cardiology",
+							"host": ["{{baseUrl}}"],
+							"path": ["doctors", "search"],
+							"query": [
+								{ "key": "q", "value": "Cardiology" }
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Doctor Details",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/doctors/{{doctorId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["doctors", "{{doctorId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Check Slot Availability",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/doctors/{{doctorId}}/availability?date=2026-11-15&time_slot=10:00 AM",
+							"host": ["{{baseUrl}}"],
+							"path": ["doctors", "{{doctorId}}", "availability"],
+							"query": [
+								{ "key": "date", "value": "2026-11-15" },
+								{ "key": "time_slot", "value": "10:00 AM" }
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "6. Appointment Management",
+			"item": [
+				{
+					"name": "Book New Appointment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var res = pm.response.json();",
+									"    if (res.data && res.data.id) {",
+									"        pm.collectionVariables.set('appointmentId', res.data.id);",
+									"        console.log('Saved newly booked appointmentId: ' + res.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"hospital_id\": \"HOSP-001\",\n    \"doctor_id\": \"DOC-001\",\n    \"appointment_type\": \"IN_PERSON\",\n    \"date\": \"2026-11-20\",\n    \"time_slot\": \"11:30 AM\",\n    \"patient_name\": \"Alex Johnson\",\n    \"patient_phone\": \"+1 (555) 019-2834\",\n    \"accessibility_needs\": \"None\",\n    \"notes\": \"Follow-up cardiovascular checkup.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/appointments",
+							"host": ["{{baseUrl}}"],
+							"path": ["appointments"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List User Appointments",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/appointments",
+							"host": ["{{baseUrl}}"],
+							"path": ["appointments"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Appointment Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/appointments/{{appointmentId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["appointments", "{{appointmentId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Appointment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/appointments/{{appointmentId}}/cancel",
+							"host": ["{{baseUrl}}"],
+							"path": ["appointments", "{{appointmentId}}", "cancel"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "7. AI Symptom Assessment",
+			"item": [
+				{
+					"name": "Analyze Symptoms (AI Assessment)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var res = pm.response.json();",
+									"    if (res.data && res.data.id) {",
+									"        pm.collectionVariables.set('assessmentId', res.data.id);",
+									"        console.log('Saved assessment ID: ' + res.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"symptoms\": \"Headache, mild fever, and muscle fatigue for 2 days\",\n    \"age\": 32,\n    \"duration\": \"2 days\",\n    \"severity\": \"Moderate\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/assessments/analyze",
+							"host": ["{{baseUrl}}"],
+							"path": ["assessments", "analyze"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Assessment History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/assessments/history",
+							"host": ["{{baseUrl}}"],
+							"path": ["assessments", "history"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Assessment by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/assessments/{{assessmentId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["assessments", "{{assessmentId}}"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "8. Notifications",
+			"item": [
+				{
+					"name": "List Notifications",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/notifications",
+							"host": ["{{baseUrl}}"],
+							"path": ["notifications"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mark Notification as Read",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/notifications/1/read",
+							"host": ["{{baseUrl}}"],
+							"path": ["notifications", "1", "read"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mark All Notifications as Read",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/notifications/read-all",
+							"host": ["{{baseUrl}}"],
+							"path": ["notifications", "read-all"]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
