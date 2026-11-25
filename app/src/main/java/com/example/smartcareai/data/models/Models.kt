@@ -1,5 +1,7 @@
 package com.example.smartcareai.data.models
 
+import java.util.UUID
+
 enum class CrowdLevel(val label: String, val badgeColorHex: Long) {
     LOW("Low Wait", 0xFF10B981),        // Green
     MODERATE("Moderate", 0xFFF59E0B),   // Amber
@@ -26,6 +28,10 @@ data class Hospital(
     val reviewCount: Int,
     val distanceKm: Double,
     val address: String,
+    val area: String = "Medical District",
+    val city: String = "Chennai",
+    val state: String = "Tamil Nadu",
+    val postalCode: String = "",
     val facilities: List<String>,
     val departments: List<String>,
     val imageUrl: String,
@@ -34,6 +40,8 @@ data class Hospital(
     val averageWaitMinutes: Int,
     val liveBedAvailability: Int,
     val emergencyContact: String,
+    val latitude: Double = 12.971598,
+    val longitude: Double = 77.594562,
     val isRecommended: Boolean = false,
     val recommendationReason: String = ""
 )
@@ -80,7 +88,9 @@ data class Appointment(
     val accessibilityNeeds: String,
     val status: AppointmentStatus = AppointmentStatus.UPCOMING,
     val referenceNumber: String,
-    val createdTimestamp: Long = System.currentTimeMillis()
+    val createdTimestamp: Long = System.currentTimeMillis(),
+    val tokenNumber: String? = null,
+    val consultationDetails: String? = null
 )
 
 data class QueueToken(
@@ -156,4 +166,16 @@ data class SupportTicket(
     val message: String,
     val timestamp: String,
     val status: String = "Submitted"
+)
+
+data class AiChatMessage(
+    val id: String = UUID.randomUUID().toString(),
+    val sender: String, // "user" or "gemini_ai"
+    val text: String,
+    val photoUri: String? = null,
+    val videoUri: String? = null,
+    val urgencyLevel: String? = null, // "LOW", "MODERATE", "HIGH", "EMERGENCY"
+    val suggestedSpecialization: String? = null,
+    val suggestedDoctors: List<Doctor> = emptyList(),
+    val timestamp: String = "Just now"
 )

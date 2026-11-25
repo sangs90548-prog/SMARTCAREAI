@@ -39,7 +39,15 @@ class Hospital {
     }
 
     public function search(string $query, ?string $crowdLevel = null): array {
-        $sql = 'SELECT * FROM hospitals WHERE (name LIKE :q OR category LIKE :q OR address LIKE :q)';
+        $sql = 'SELECT * FROM hospitals WHERE (
+            name LIKE :q
+            OR category LIKE :q
+            OR address LIKE :q
+            OR city LIKE :q
+            OR state LIKE :q
+            OR postal_code LIKE :q
+            OR departments_json LIKE :q
+        )';
         $params = [':q' => '%' . trim($query) . '%'];
 
         if (!empty($crowdLevel)) {
@@ -47,7 +55,7 @@ class Hospital {
             $params[':crowd'] = strtoupper(trim($crowdLevel));
         }
 
-        $sql .= ' ORDER BY rating DESC';
+        $sql .= ' ORDER BY is_recommended DESC, rating DESC';
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
 
@@ -87,6 +95,8 @@ class Hospital {
         $row['review_count'] = (int)$row['review_count'];
         $row['average_wait_minutes'] = (int)$row['average_wait_minutes'];
         $row['live_bed_availability'] = (int)$row['live_bed_availability'];
+        $row['latitude'] = isset($row['latitude']) ? (float)$row['latitude'] : 12.971598;
+        $row['longitude'] = isset($row['longitude']) ? (float)$row['longitude'] : 77.594562;
         $row['is_recommended'] = (bool)$row['is_recommended'];
         return $row;
     }

@@ -205,8 +205,12 @@ fun HospitalCard(
     onCardClick: () -> Unit,
     onBookClick: () -> Unit,
     onCompareClick: (() -> Unit)? = null,
-    isComparing: Boolean = false
+    isComparing: Boolean = false,
+    isBookmarked: Boolean = false,
+    onBookmarkToggle: (() -> Unit)? = null
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -217,11 +221,32 @@ fun HospitalCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
+            // Header Row: Image/Icon, Name, Badges & Bookmark
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = SurfaceLightBlue,
+                    modifier = Modifier.size(52.dp)
+                ) {
+                    if (hospital.imageUrl.isNotBlank()) {
+                        AsyncImage(
+                            model = hospital.imageUrl,
+                            contentDescription = hospital.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.LocalHospital, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(28.dp))
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -235,31 +260,54 @@ fun HospitalCard(
                             modifier = Modifier.weight(1f, fill = false)
                         )
                         if (hospital.isRecommended) {
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(6.dp),
                                 color = SecondaryTeal
                             ) {
-                                Text(
-                                    text = "AI Pick",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Verified, contentDescription = "Verified", tint = Color.White, modifier = Modifier.size(10.dp))
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text(
+                                        text = "Verified",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
                     Text(
-                        text = hospital.category,
-                        style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
+                        text = "${hospital.category} • ${hospital.city}, ${hospital.state}",
+                        style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-                CrowdBadge(crowdLevel = hospital.crowdLevel)
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                if (onBookmarkToggle != null) {
+                    IconButton(
+                        onClick = onBookmarkToggle,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                            contentDescription = "Bookmark",
+                            tint = if (isBookmarked) PrimaryBlue else TextMuted
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
+            // Stats Row: Rating, Distance, Wait Time
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -270,7 +318,7 @@ fun HospitalCard(
                     tint = WarningAmber,
                     modifier = Modifier.size(16.dp)
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(3.dp))
                 Text(
                     text = "${hospital.rating}",
                     style = MaterialTheme.typography.bodySmall.copy(
@@ -283,7 +331,7 @@ fun HospitalCard(
                     style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
                 )
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
                 Icon(
                     imageVector = Icons.Default.LocationOn,
@@ -293,30 +341,30 @@ fun HospitalCard(
                 )
                 Spacer(modifier = Modifier.width(2.dp))
                 Text(
-                    text = "${hospital.distanceKm} km away",
-                    style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
+                    text = "${hospital.city}, ${hospital.state}",
+                    style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary, fontWeight = FontWeight.SemiBold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                Icon(
-                    imageVector = Icons.Default.Schedule,
-                    contentDescription = null,
-                    tint = TextSecondary,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(2.dp))
+                CrowdBadge(crowdLevel = hospital.crowdLevel)
+
+                Spacer(modifier = Modifier.width(6.dp))
+
                 Text(
-                    text = "~${hospital.averageWaitMinutes} mins",
+                    text = "~${hospital.averageWaitMinutes}m wait",
                     style = MaterialTheme.typography.bodySmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryBlue
                     )
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Address Row
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.Place,
@@ -326,53 +374,80 @@ fun HospitalCard(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = hospital.address,
+                    text = "${hospital.address}, ${hospital.city}, ${hospital.state} ${hospital.postalCode}".trimEnd(),
                     style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Department Tags
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                hospital.departments.take(3).forEach { dept ->
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = SurfaceLightBlue
+                    ) {
+                        Text(
+                            text = dept,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            fontSize = 11.sp,
+                            color = PrimaryBlue,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Action Buttons Row: Directions, Details, Book Visit
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
+                    onClick = {
+                        val mapUri = android.net.Uri.parse("geo:${hospital.latitude},${hospital.longitude}?q=${hospital.latitude},${hospital.longitude}(${android.net.Uri.encode(hospital.name)})")
+                        val mapIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, mapUri)
+                        try {
+                            context.startActivity(mapIntent)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Directions", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                OutlinedButton(
                     onClick = onCardClick,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryBlue)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryBlue),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                 ) {
-                    Text("Details", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("Details", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Button(
                     onClick = onBookClick,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                 ) {
-                    Text("Book Visit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-
-                if (onCompareClick != null) {
-                    IconButton(
-                        onClick = onCompareClick,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(
-                                if (isComparing) PrimaryBlue.copy(alpha = 0.15f) else SurfaceLightBlue,
-                                RoundedCornerShape(10.dp)
-                            )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CompareArrows,
-                            contentDescription = "Compare",
-                            tint = if (isComparing) PrimaryBlue else TextSecondary
-                        )
-                    }
+                    Text("Book Visit", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

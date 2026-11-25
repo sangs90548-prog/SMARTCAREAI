@@ -20,10 +20,11 @@ class SmartCareRepositoryTest {
     fun testInitialHospitalsLoaded() {
         val list = repository.hospitals.value
         assertTrue("Initial hospitals should not be empty", list.isNotEmpty())
-        assertEquals(4, list.size)
+        assertEquals(30, list.size)
         val recommended = list.find { it.isRecommended }
         assertNotNull("Should have a recommended hospital", recommended)
-        assertEquals("MetroCare Central Hospital", recommended?.name)
+        assertEquals("Apollo Hospitals Greams Road", recommended?.name)
+        assertTrue("Hospital should have valid coordinates", recommended?.latitude != 0.0)
     }
 
     @Test
@@ -36,7 +37,7 @@ class SmartCareRepositoryTest {
             appointmentType = AppointmentType.IN_PERSON,
             hospital = hospital,
             doctor = doctor,
-            date = "Tomorrow",
+            date = "2024-10-25",
             timeSlot = "10:30 AM",
             patientName = "Test Patient",
             patientPhone = "+1555000111",
@@ -54,6 +55,29 @@ class SmartCareRepositoryTest {
 
         val latestNotif = repository.notifications.value.first()
         assertTrue(latestNotif.title.contains("Appointment Confirmed"))
+    }
+
+    @Test
+    fun testAddAppointmentWithOverrideServerReference() {
+        val hospital = repository.hospitals.value.first()
+        val doctor = repository.doctors.first()
+
+        val app = repository.addAppointment(
+            appointmentType = AppointmentType.IN_PERSON,
+            hospital = hospital,
+            doctor = doctor,
+            date = "2024-10-26",
+            timeSlot = "02:00 PM",
+            patientName = "Jane Doe",
+            patientPhone = "+1555222333",
+            accessibilityNeeds = "None",
+            overrideRef = "SC-2024-TEST01",
+            overrideId = "APT-TEST1234"
+        )
+
+        assertEquals("APT-TEST1234", app.id)
+        assertEquals("SC-2024-TEST01", app.referenceNumber)
+        assertEquals("2024-10-26", app.date)
     }
 
     @Test
@@ -96,10 +120,10 @@ class SmartCareRepositoryTest {
             accessibilityNeeds = ""
         )
 
-        repository.rescheduleAppointment(app.id, "Friday, Oct 25", "02:00 PM")
+        repository.rescheduleAppointment(app.id, "2024-10-28", "02:00 PM")
 
         val updatedApp = repository.getAppointmentById(app.id)
-        assertEquals("Friday, Oct 25", updatedApp?.date)
+        assertEquals("2024-10-28", updatedApp?.date)
         assertEquals("02:00 PM", updatedApp?.timeSlot)
         assertEquals(AppointmentStatus.UPCOMING, updatedApp?.status)
     }

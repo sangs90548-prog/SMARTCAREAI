@@ -1,5 +1,7 @@
 package com.example.smartcareai.ui.screens.discovery
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,6 +20,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -162,101 +166,342 @@ fun WelcomePreferencesScreen(
     }
 }
 
-// 2. Search Hospitals
+@Composable
+private fun HomeOptionChip(
+    label: String,
+    icon: ImageVector,
+    containerColor: Color,
+    contentColor: Color,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = label, tint = contentColor, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        }
+    }
+}
+
+// 2. Search Hospitals Screen
 @Composable
 fun SearchHospitalsScreen(
     viewModel: SmartCareViewModel,
     onHospitalClick: (String) -> Unit,
     onBookClick: (Hospital) -> Unit,
-    onFilterClick: () -> Unit
+    onFilterClick: () -> Unit,
+    onNavigateToProfile: () -> Unit = {},
+    onNavigateToQueue: () -> Unit = {},
+    onNavigateToSearch: () -> Unit = {},
+    onNavigateToAi: () -> Unit = {},
+    onNavigateToHistory: () -> Unit = {}
 ) {
+    val strings = LocalAppStrings.current
     val searchQuery by viewModel.searchQuery.collectAsState()
     val filteredHospitals by viewModel.filteredHospitals.collectAsState()
-    var locationInput by remember { mutableStateOf("Medical District, Downtown") }
+    val isOpenNow by viewModel.isOpenNowFilter.collectAsState()
+    val isWithin5Km by viewModel.isWithin5KmFilter.collectAsState()
+    val bookmarkedIds by viewModel.bookmarkedHospitalIds.collectAsState()
+    val allHospitals by viewModel.hospitals.collectAsState()
+    val isSearchingPlaces by viewModel.isSearchingPlaces.collectAsState()
+    val placesNextPageToken by viewModel.placesNextPageToken.collectAsState()
 
-    Column(
+    var selectedMapHospitalId by remember { mutableStateOf(allHospitals.firstOrNull()?.id ?: "HOSP-IN-001") }
+    val selectedMapHospital = allHospitals.find { it.id == selectedMapHospitalId } ?: allHospitals.firstOrNull()
+    var visibleItemCount by remember { mutableStateOf(10) }
+
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(AppBackground)
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        // Location Selector
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = CardSurface)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.MyLocation, contentDescription = null, tint = PrimaryBlue)
-                Spacer(Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Your Current Location", style = MaterialTheme.typography.labelSmall.copy(color = TextSecondary))
-                    Text(locationInput, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = TextPrimary))
-                }
-                TextButton(onClick = { locationInput = "Downtown Central, Sector 4" }) {
-                    Text("Change", color = PrimaryBlue, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        // Search Field with Filter Trigger
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        // 1. Google-Style Large Search Bar with Search, Clear, and Voice Search Icons
+        item {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.setSearchQuery(it) },
-                placeholder = { Text("Search hospital, department, or care...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                placeholder = { Text(strings.searchPlaceholder) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = PrimaryBlue) },
                 trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = null)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear", tint = TextMuted)
+                            }
+                        }
+                        IconButton(onClick = { /* Voice search trigger */ }) {
+                            Icon(Icons.Default.Mic, contentDescription = "Voice Search", tint = PrimaryBlue)
                         }
                     }
                 },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = CardSurface,
                     unfocusedContainerColor = CardSurface
-                )
+                ),
+                singleLine = true
             )
+        }
 
-            Spacer(Modifier.width(8.dp))
-
-            IconButton(
-                onClick = onFilterClick,
+        // 2. Horizontal Filter Chips Row
+        item {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
-                    .size(52.dp)
-                    .background(PrimaryBlue, RoundedCornerShape(12.dp))
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp)
             ) {
-                Icon(Icons.Default.FilterList, contentDescription = "Filter", tint = Color.White)
+                item {
+                    FilterChip(
+                        selected = true,
+                        onClick = {},
+                        label = { Text(strings.filterHospitals, fontWeight = FontWeight.Bold) },
+                        leadingIcon = { Icon(Icons.Default.LocalHospital, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = PrimaryBlue,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+                item {
+                    FilterChip(
+                        selected = isOpenNow,
+                        onClick = { viewModel.toggleOpenNowFilter() },
+                        label = { Text(strings.filterOpenNow) },
+                        leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = SecondaryTeal,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+                item {
+                    FilterChip(
+                        selected = isWithin5Km,
+                        onClick = { viewModel.toggleWithin5KmFilter() },
+                        label = { Text(strings.filterWithin5Km) },
+                        leadingIcon = { Icon(Icons.Default.NearMe, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = SecondaryTeal,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+                item {
+                    FilterChip(
+                        selected = false,
+                        onClick = onFilterClick,
+                        label = { Text(strings.filterAdvanced) },
+                        leadingIcon = { Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    )
+                }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        // 3. Interactive Map Section
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = CardSurface),
+                elevation = CardDefaults.cardElevation(4.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Interactive Hospital Map", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = TextPrimary))
+                        Text("Medical District, Downtown", style = MaterialTheme.typography.labelSmall.copy(color = PrimaryBlue, fontWeight = FontWeight.SemiBold))
+                    }
 
-        SectionHeader(
-            title = "Nearby Hospitals (${filteredHospitals.size})",
-            subtitle = "Live wait times updated 2 mins ago"
-        )
+                    Spacer(Modifier.height(8.dp))
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(filteredHospitals) { hospital ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(190.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFFE2E8F0))
+                    ) {
+                        // Grid canvas lines
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            repeat(5) {
+                                HorizontalDivider(color = Color.White.copy(alpha = 0.6f), thickness = 2.dp)
+                            }
+                        }
+
+                        // User Location Pin
+                        Surface(
+                            modifier = Modifier.offset(x = 16.dp, y = 16.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            color = SecondaryTeal
+                        ) {
+                            Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.MyLocation, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("My Location", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+
+                        // Hospital Markers Overlay with Coordinates
+                        allHospitals.forEachIndexed { index, h ->
+                            val isSel = h.id == selectedMapHospitalId
+                            Box(
+                                modifier = Modifier
+                                    .offset(x = (25 + index * 68).dp, y = (60 + index * 24).dp)
+                                    .clickable { selectedMapHospitalId = h.id }
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSel) PrimaryBlue else CardSurface,
+                                    shadowElevation = 4.dp
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = if (isSel) Color.White else PrimaryBlue, modifier = Modifier.size(14.dp))
+                                        Spacer(Modifier.width(2.dp))
+                                        Text(h.name.take(8) + "..", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isSel) Color.White else TextPrimary)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Floating Selected Hospital Preview Overlay
+                        if (selectedMapHospital != null) {
+                            Surface(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(8.dp)
+                                    .fillMaxWidth()
+                                    .clickable { onHospitalClick(selectedMapHospital.id) },
+                                shape = RoundedCornerShape(12.dp),
+                                color = CardSurface,
+                                shadowElevation = 6.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = SurfaceLightBlue,
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.LocalHospital, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(20.dp))
+                                        }
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(selectedMapHospital.name, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = TextPrimary), maxLines = 1)
+                                        Text("${selectedMapHospital.rating} ★ • ${selectedMapHospital.distanceKm} km away • ~${selectedMapHospital.averageWaitMinutes}m wait", fontSize = 10.sp, color = TextSecondary)
+                                    }
+                                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = PrimaryBlue)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Hospital Results Header
+        item {
+            SectionHeader(
+                title = "Hospital Results (${filteredHospitals.size})",
+                subtitle = "Live crowd status and verified medical facilities"
+            )
+            Spacer(Modifier.height(4.dp))
+        }
+
+        // 5. Empty Search State
+        if (filteredHospitals.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = CardSurface)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.SearchOff, contentDescription = null, tint = TextMuted, modifier = Modifier.size(48.dp))
+                        Spacer(Modifier.height(8.dp))
+                        Text("No Hospitals Found", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = TextPrimary))
+                        Text("No results match '$searchQuery'. Try adjusting distance or filter criteria.", fontSize = 12.sp, color = TextSecondary)
+                    }
+                }
+            }
+        } else {
+            // 6. Hospital Cards List
+            items(filteredHospitals.take(visibleItemCount)) { hospital ->
                 HospitalCard(
                     hospital = hospital,
+                    isBookmarked = bookmarkedIds.contains(hospital.id),
+                    onBookmarkToggle = { viewModel.toggleBookmark(hospital.id) },
                     onCardClick = { onHospitalClick(hospital.id) },
                     onBookClick = {
                         viewModel.selectHospitalForBooking(hospital)
                         onBookClick(hospital)
                     }
                 )
+            }
+
+            // 7. Show More Hospitals / Google Places Pagination
+            val hasMorePlaces = placesNextPageToken != null
+            if (visibleItemCount < filteredHospitals.size || hasMorePlaces) {
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            if (hasMorePlaces) {
+                                viewModel.loadMorePlacesHospitals()
+                            }
+                            visibleItemCount += 6
+                        },
+                        enabled = !isSearchingPlaces,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    ) {
+                        if (isSearchingPlaces) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text("...", fontWeight = FontWeight.Bold)
+                        } else {
+                            Text(
+                                text = if (hasMorePlaces) strings.loadMorePlaces else "${strings.showMoreHospitals} (${filteredHospitals.size - visibleItemCount})",
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Icon(Icons.Default.ExpandMore, contentDescription = null)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
             }
         }
     }
@@ -321,6 +566,7 @@ fun HospitalMapViewScreen(
     viewModel: SmartCareViewModel,
     onHospitalClick: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val hospitals by viewModel.hospitals.collectAsState()
     var selectedHospitalId by remember { mutableStateOf(hospitals.firstOrNull()?.id ?: "h1") }
     val selectedHospital = hospitals.find { it.id == selectedHospitalId } ?: hospitals.first()
@@ -330,14 +576,14 @@ fun HospitalMapViewScreen(
             .fillMaxSize()
             .background(AppBackground)
     ) {
-        // Map Container Fallback
+        // Interactive Map Container
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
                 .background(Color(0xFFE2E8F0))
         ) {
-            // Simulated Map Background Grid
+            // Grid background simulating map tiles
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceEvenly
@@ -347,12 +593,12 @@ fun HospitalMapViewScreen(
                 }
             }
 
-            // Map Markers Overlay
+            // Map Pins / Markers Overlay with Lat / Lng Coordinates
             hospitals.forEachIndexed { index, h ->
                 val isSel = h.id == selectedHospitalId
                 Box(
                     modifier = Modifier
-                        .offset(x = (40 + index * 70).dp, y = (60 + index * 90).dp)
+                        .offset(x = (30 + index * 75).dp, y = (50 + index * 95).dp)
                         .clickable { selectedHospitalId = h.id }
                 ) {
                     Surface(
@@ -364,15 +610,18 @@ fun HospitalMapViewScreen(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.LocalHospital, contentDescription = null, tint = if (isSel) Color.White else PrimaryBlue, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = if (isSel) Color.White else PrimaryBlue, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(h.name.take(12) + "...", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isSel) Color.White else TextPrimary)
+                            Column {
+                                Text(h.name.take(12) + "...", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isSel) Color.White else TextPrimary)
+                                Text("${h.latitude}, ${h.longitude}", fontSize = 9.sp, color = if (isSel) Color.White.copy(alpha = 0.8f) else TextSecondary)
+                            }
                         }
                     }
                 }
             }
 
-            // Map Controls
+            // Recenter Control
             Surface(
                 modifier = Modifier
                     .padding(16.dp)
@@ -382,12 +631,12 @@ fun HospitalMapViewScreen(
                 shadowElevation = 4.dp
             ) {
                 IconButton(onClick = {}) {
-                    Icon(Icons.Default.MyLocation, contentDescription = "Recenter", tint = PrimaryBlue)
+                    Icon(Icons.Default.MyLocation, contentDescription = "Recenter Map", tint = PrimaryBlue)
                 }
             }
         }
 
-        // Bottom Selected Hospital Card
+        // Bottom Selected Hospital Location & Action Card
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
@@ -402,35 +651,55 @@ fun HospitalMapViewScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(selectedHospital.name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = TextPrimary))
-                        Text(selectedHospital.address, style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary))
+                        Text("${selectedHospital.address} • ${selectedHospital.area}", style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary))
                     }
                     CrowdBadge(crowdLevel = selectedHospital.crowdLevel)
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Place, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("${selectedHospital.latitude}, ${selectedHospital.longitude}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.DirectionsCar, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("${selectedHospital.distanceKm} km", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Schedule, contentDescription = null, tint = SecondaryTeal, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Est. ${selectedHospital.averageWaitMinutes} mins wait", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
                 }
 
                 Spacer(Modifier.height(16.dp))
 
-                Button(
-                    onClick = { onHospitalClick(selectedHospital.id) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
-                ) {
-                    Text("View Full Hospital Details", fontWeight = FontWeight.Bold)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            val mapUri = Uri.parse("geo:${selectedHospital.latitude},${selectedHospital.longitude}?q=${selectedHospital.latitude},${selectedHospital.longitude}(${Uri.encode(selectedHospital.name)})")
+                            val mapIntent = Intent(Intent.ACTION_VIEW, mapUri)
+                            try {
+                                context.startActivity(mapIntent)
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Get Directions", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = { onHospitalClick(selectedHospital.id) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    ) {
+                        Text("View Details", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

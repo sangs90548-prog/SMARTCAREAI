@@ -14,13 +14,16 @@ import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.smartcareai.ui.components.SmartCareTopBar
 import com.example.smartcareai.ui.screens.assistance.*
+import com.example.smartcareai.ui.screens.auth.*
 import com.example.smartcareai.ui.screens.booking.*
 import com.example.smartcareai.ui.screens.crowd.*
 import com.example.smartcareai.ui.screens.discovery.*
 import com.example.smartcareai.ui.screens.doctors.*
 import com.example.smartcareai.ui.screens.queue.*
+import com.example.smartcareai.ui.theme.LocalAppStrings
 import com.example.smartcareai.ui.theme.PrimaryBlue
 import com.example.smartcareai.ui.theme.TextMuted
+import com.example.smartcareai.ui.theme.getStringsForLanguage
 import com.example.smartcareai.viewmodel.SmartCareViewModel
 
 data class BottomNavItem(
@@ -30,11 +33,11 @@ data class BottomNavItem(
 )
 
 val bottomNavItems = listOf(
-    BottomNavItem("Discovery", Screen.SearchHospitals.route, Icons.Default.Search),
-    BottomNavItem("Doctors", Screen.DepartmentSelection.route, Icons.Default.MedicalServices),
+    BottomNavItem("Profile", Screen.PatientProfile.route, Icons.Default.Person),
     BottomNavItem("Queue", Screen.LiveQueueTracking.route, Icons.Default.ConfirmationNumber),
-    BottomNavItem("Care", Screen.EmergencyGuide.route, Icons.Default.HealthAndSafety),
-    BottomNavItem("Profile", Screen.PatientProfile.route, Icons.Default.Person)
+    BottomNavItem("Search", Screen.SearchHospitals.route, Icons.Default.Search),
+    BottomNavItem("AI Care", Screen.WaitingTimePrediction.route, Icons.Default.AutoAwesome),
+    BottomNavItem("History", Screen.BookingHistory.route, Icons.Default.History)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,68 +47,138 @@ fun SmartCareAppNavGraph(
     viewModel: SmartCareViewModel
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route ?: Screen.WelcomePreferences.route
+
+    val selectedLanguage by viewModel.selectedLanguage.collectAsState()
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+
+    val appStrings = getStringsForLanguage(selectedLanguage)
+
+    val startDestination = when {
+        selectedLanguage.isNullOrBlank() -> Screen.LanguageSelection.route
+        !isLoggedIn -> Screen.Login.route
+        else -> Screen.SearchHospitals.route
+    }
+
+    val currentRoute = navBackStackEntry?.destination?.route ?: startDestination
 
     val notifications by viewModel.notifications.collectAsState()
     val unreadNotifs = notifications.count { !it.isRead }
 
-    val showBottomBar = bottomNavItems.any { it.route == currentRoute } ||
+    val localizedBottomNavItems = listOf(
+        BottomNavItem(appStrings.navProfile, Screen.PatientProfile.route, Icons.Default.Person),
+        BottomNavItem(appStrings.navQueue, Screen.LiveQueueTracking.route, Icons.Default.ConfirmationNumber),
+        BottomNavItem(appStrings.navSearch, Screen.SearchHospitals.route, Icons.Default.Search),
+        BottomNavItem(appStrings.navAiCare, Screen.WaitingTimePrediction.route, Icons.Default.AutoAwesome),
+        BottomNavItem(appStrings.navHistory, Screen.BookingHistory.route, Icons.Default.History)
+    )
+
+    val showBottomBar = localizedBottomNavItems.any { it.route == currentRoute } ||
             currentRoute == Screen.HospitalList.route ||
             currentRoute == Screen.BookingHistory.route ||
             currentRoute == Screen.SettingsPrivacy.route
 
-    Scaffold(
-        topBar = {
-            SmartCareTopBar(
-                title = when {
-                    currentRoute.startsWith("hospital_details") -> "Hospital Details"
-                    currentRoute.startsWith("doctor_profile") -> "Doctor Profile"
-                    currentRoute.startsWith("booking_confirmation") -> "Booking Confirmation"
-                    currentRoute.startsWith("cancel_reschedule") -> "Cancel / Reschedule"
-                    else -> Screen.getScreenTitle(currentRoute)
-                },
-                showBackButton = !showBottomBar && currentRoute != Screen.WelcomePreferences.route,
-                onBackClick = { navController.popBackStack() },
-                onNotificationClick = { navController.navigate(Screen.NotificationsCenter.route) },
-                unreadNotificationCount = unreadNotifs,
-                onEmergencyClick = { navController.navigate(Screen.EmergencyGuide.route) }
-            )
-        },
-        bottomBar = {
-            if (showBottomBar) {
-                NavigationBar {
-                    bottomNavItems.forEach { item ->
-                        val isSelected = currentRoute == item.route
-                        NavigationBarItem(
-                            selected = isSelected,
-                            onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+    val isAuthRoute = currentRoute == Screen.LanguageSelection.route ||
+            currentRoute == Screen.Login.route ||
+            currentRoute == Screen.Register.route
+
+    CompositionLocalProvider(LocalAppStrings provides appStrings) {
+        Scaffold(
+            topBar = {
+                SmartCareTopBar(
+                    title = when {
+                        currentRoute.startsWith("hospital_details") -> "Hospital Details"
+                        currentRoute.startsWith("doctor_profile") -> "Doctor Profile"
+                        currentRoute.startsWith("booking_confirmation") -> "Booking Confirmation"
+                        currentRoute.startsWith("cancel_reschedule") -> "Cancel / Reschedule"
+                        else -> Screen.getScreenTitle(currentRoute)
+                    },
+                    showBackButton = !showBottomBar && !isAuthRoute && currentRoute != Screen.SearchHospitals.route,
+                    onBackClick = { navController.popBackStack() },
+                    onNotificationClick = { navController.navigate(Screen.NotificationsCenter.route) },
+                    unreadNotificationCount = unreadNotifs,
+                    onEmergencyClick = { navController.navigate(Screen.EmergencyGuide.route) }
+                )
+            },
+            bottomBar = {
+                if (showBottomBar) {
+                    NavigationBar {
+                        localizedBottomNavItems.forEach { item ->
+                            val isSelected = currentRoute == item.route
+                            NavigationBarItem(
+                                selected = isSelected,
+                                onClick = {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(item.icon, contentDescription = item.title) },
-                            label = { Text(item.title) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = PrimaryBlue,
-                                selectedTextColor = PrimaryBlue,
-                                unselectedIconColor = TextMuted,
-                                unselectedTextColor = TextMuted
+                                },
+                                icon = { Icon(item.icon, contentDescription = item.title) },
+                                label = { Text(item.title) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = PrimaryBlue,
+                                    selectedTextColor = PrimaryBlue,
+                                    unselectedIconColor = TextMuted,
+                                    unselectedTextColor = TextMuted
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }
-        }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Screen.WelcomePreferences.route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = startDestination,
+                modifier = Modifier.padding(innerPadding)
+            ) {
+                // Auth & Startup Flow
+                composable(Screen.LanguageSelection.route) {
+                    LanguageSelectionScreen(
+                        viewModel = viewModel,
+                        onContinueClick = {
+                            navController.navigate(Screen.Login.route) {
+                                popUpTo(Screen.LanguageSelection.route) { inclusive = true }
+                            }
+                        }
+                    )
+                }
+            composable(Screen.Login.route) {
+                LoginScreen(
+                    viewModel = viewModel,
+                    onLoginSuccess = {
+                        navController.navigate(Screen.SearchHospitals.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onRegisterClick = {
+                        navController.navigate(Screen.Register.route)
+                    },
+                    onGuestClick = {
+                        viewModel.loginAsGuest {
+                            navController.navigate(Screen.SearchHospitals.route) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
+                )
+            }
+            composable(Screen.Register.route) {
+                RegisterScreen(
+                    viewModel = viewModel,
+                    onRegisterSuccess = {
+                        navController.navigate(Screen.SearchHospitals.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onLoginClick = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
             // Group 1: Discovery (1 - 7)
             composable(Screen.WelcomePreferences.route) {
                 WelcomePreferencesScreen(
@@ -118,7 +191,12 @@ fun SmartCareAppNavGraph(
                     viewModel = viewModel,
                     onHospitalClick = { id -> navController.navigate(Screen.HospitalDetails.createRoute(id)) },
                     onBookClick = { navController.navigate(Screen.ChooseAppointmentType.route) },
-                    onFilterClick = { navController.navigate(Screen.FilterSort.route) }
+                    onFilterClick = { navController.navigate(Screen.FilterSort.route) },
+                    onNavigateToProfile = { navController.navigate(Screen.PatientProfile.route) },
+                    onNavigateToQueue = { navController.navigate(Screen.LiveQueueTracking.route) },
+                    onNavigateToSearch = { navController.navigate(Screen.SearchHospitals.route) },
+                    onNavigateToAi = { navController.navigate(Screen.WaitingTimePrediction.route) },
+                    onNavigateToHistory = { navController.navigate(Screen.BookingHistory.route) }
                 )
             }
             composable(Screen.HospitalList.route) {
@@ -329,4 +407,5 @@ fun SmartCareAppNavGraph(
             }
         }
     }
+}
 }

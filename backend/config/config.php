@@ -4,14 +4,15 @@
  * Centralized settings for database, Python AI service, and security.
  */
 
-// Error Reporting (adjust in production)
+// 
+Error Reporting (adjust in production)
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
 // Database Settings
 define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
-define('DB_PORT', getenv('DB_PORT') ?: '3306');
+define('DB_PORT', getenv('DB_PORT') ?: '3307');
 define('DB_NAME', getenv('DB_NAME') ?: 'smartcareai');
 define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : 'root'); // Falls back to 'root' for MySQL 8; set empty for standard XAMPP if no pass
@@ -25,3 +26,6 @@ define('APP_NAME', 'SmartCareAI Backend');
 define('APP_VERSION', '1.0.0');
 define('TOKEN_EXPIRY_DAYS', 30);
 define('CORS_ALLOWED_ORIGINS', '*');
+
+// Google Places API Settings (Keep secure on backend)
+define('GOOGLE_PLACES_API_KEY', getenv('GOOGLE_PLACES_API_KEY') ?: '');

@@ -37,6 +37,31 @@ class HospitalController {
         Response::success($results, 'Search results retrieved');
     }
 
+    public function placesSearch(array $queryParams): void {
+        $query = $queryParams['q'] ?? '';
+        $nextToken = $queryParams['next_page_token'] ?? null;
+
+        require_once __DIR__ . '/../services/GooglePlacesService.php';
+        $service = new GooglePlacesService();
+        $googleResult = $service->searchHospitals($query, $nextToken);
+
+        if ($googleResult['success'] && !empty($googleResult['hospitals'])) {
+            Response::success([
+                'source' => 'google_places',
+                'next_page_token' => $googleResult['next_page_token'],
+                'hospitals' => $googleResult['hospitals']
+            ], 'Google Places hospitals retrieved');
+            return;
+        }
+
+        $localHospitals = $this->hospitalModel->search($query);
+        Response::success([
+            'source' => 'local_database',
+            'next_page_token' => null,
+            'hospitals' => $localHospitals
+        ], 'Local database hospitals retrieved');
+    }
+
     public function getDoctors(string $hospitalId): void {
         $hospital = $this->hospitalModel->findById($hospitalId);
         if (!$hospital) {

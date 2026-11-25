@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 from symptom_analyzer import SymptomRequest, SymptomAnalysisResponse
 from gemini_service import GeminiService
-
+from waiting_time_predictor import predict_waiting_time
 load_dotenv()
 
 # Logging configuration
@@ -58,7 +58,23 @@ def health_check():
         "gemini_api_configured": has_key,
         "model": os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     }
+@app.post("/predict-waiting-time")
+def waiting_time_prediction_endpoint(payload: dict):
+    try:
+        result = predict_waiting_time(
+            waiting_patients=int(payload.get("waiting_patients", 0)),
+            available_doctors=int(payload.get("available_doctors", 0)),
+            avg_consultation_minutes=int(payload.get("avg_consultation_minutes", 15)),
+            priority_patients=int(payload.get("priority_patients", 0))
+        )
+        return result
 
+    except (ValueError, TypeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        logger.error(f"Waiting time prediction error: {e}")
+        raise HTTPException(status_code=500, detail="Waiting time prediction failed.")
 
 @app.post(
     "/analyze",

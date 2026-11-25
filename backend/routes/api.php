@@ -54,6 +54,9 @@ class Router {
         if ($method === 'GET' && $path === '/hospitals') {
             (new HospitalController())->getAll($query);
         }
+        if ($method === 'GET' && ($path === '/hospitals/places-search' || $path === '/hospitals/places')) {
+            (new HospitalController())->placesSearch($query);
+        }
         if ($method === 'GET' && $path === '/hospitals/search') {
             (new HospitalController())->search($query);
         }

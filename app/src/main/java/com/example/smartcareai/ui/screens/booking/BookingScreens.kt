@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartcareai.data.models.Appointment
 import com.example.smartcareai.data.models.AppointmentStatus
 import com.example.smartcareai.data.models.AppointmentType
 import com.example.smartcareai.ui.theme.*
@@ -263,6 +264,8 @@ fun BookingReviewScreen(
     val hospital by viewModel.selectedHospital.collectAsState()
     val date by viewModel.selectedDate.collectAsState()
     val timeSlot by viewModel.selectedTimeSlot.collectAsState()
+    val isBookingLoading by viewModel.bookingLoading.collectAsState()
+    val bookingError by viewModel.bookingError.collectAsState()
 
     Column(
         modifier = Modifier
@@ -274,6 +277,31 @@ fun BookingReviewScreen(
         Text("Verify patient details & confirm appointment registration", style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary))
 
         Spacer(Modifier.height(16.dp))
+
+        if (bookingError != null) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = EmergencyRedLight)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = EmergencyRed)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = bookingError!!,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = EmergencyRed,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+        }
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -310,18 +338,31 @@ fun BookingReviewScreen(
 
         Button(
             onClick = {
-                val app = viewModel.confirmBooking()
-                if (app != null) {
-                    onConfirmClick(app.id)
-                }
+                viewModel.confirmBooking(
+                    onSuccess = { confirmedApp ->
+                        onConfirmClick(confirmedApp.id)
+                    },
+                    onError = {
+                        // Error message handled in UI via bookingError StateFlow
+                    }
+                )
             },
+            enabled = !isBookingLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
         ) {
-            Text("Confirm & Reserve Ticket", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            if (isBookingLoading) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Confirm & Reserve Ticket", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -407,19 +448,109 @@ fun BookingConfirmationScreen(
     }
 }
 
-// 22. Booking History
+// 22. Doctor Visit History Screen
 @Composable
 fun BookingHistoryScreen(
     viewModel: SmartCareViewModel,
     onAppointmentClick: (String) -> Unit
 ) {
-    val appointments by viewModel.appointments.collectAsState()
-    var selectedTab by remember { mutableStateOf(0) } // 0: Upcoming, 1: Completed, 2: Cancelled
+    val historyList by viewModel.patientVisitHistory.collectAsState()
+    var selectedTab by remember { mutableStateOf(0) } // 0: All Visits, 1: Upcoming, 2: Completed, 3: Cancelled
+    var selectedDetailApp by remember { mutableStateOf<Appointment?>(null) }
 
     val filteredApps = when (selectedTab) {
-        1 -> appointments.filter { it.status == AppointmentStatus.COMPLETED }
-        2 -> appointments.filter { it.status == AppointmentStatus.CANCELLED }
-        else -> appointments.filter { it.status == AppointmentStatus.UPCOMING }
+        1 -> historyList.filter { it.status == AppointmentStatus.UPCOMING }
+        2 -> historyList.filter { it.status == AppointmentStatus.COMPLETED }
+        3 -> historyList.filter { it.status == AppointmentStatus.CANCELLED }
+        else -> historyList // All Visits (latest visit first)
+    }
+
+    // Detailed Visit History Dialog Modal
+    if (selectedDetailApp != null) {
+        val app = selectedDetailApp!!
+        AlertDialog(
+            onDismissRequest = { selectedDetailApp = null },
+            title = {
+                Column {
+                    Text("Doctor Visit Details", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = TextPrimary))
+                    Text("Ref: ${app.referenceNumber}", style = MaterialTheme.typography.labelSmall.copy(color = PrimaryBlue, fontWeight = FontWeight.Bold))
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    HorizontalDivider(color = BorderLight)
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Doctor:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(app.doctorName, fontSize = 12.sp, color = TextPrimary)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Specialization:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(app.doctorSpecialization, fontSize = 12.sp, color = SecondaryTeal)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Hospital:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(app.hospitalName, fontSize = 12.sp, color = TextPrimary)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Date & Time:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("${app.date} • ${app.timeSlot}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PrimaryBlue)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Status:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(
+                            text = app.status.name,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = when (app.status) {
+                                AppointmentStatus.UPCOMING -> PrimaryBlue
+                                AppointmentStatus.COMPLETED -> SecondaryTeal
+                                AppointmentStatus.CANCELLED -> EmergencyRed
+                            }
+                        )
+                    }
+                    if (!app.tokenNumber.isNullOrBlank()) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Token Number:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(app.tokenNumber, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SecondaryTeal)
+                        }
+                    }
+                    if (!app.consultationDetails.isNullOrBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text("Consultation Details / Notes:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Surface(shape = RoundedCornerShape(8.dp), color = SurfaceLightBlue, modifier = Modifier.fillMaxWidth()) {
+                            Text(app.consultationDetails, modifier = Modifier.padding(10.dp), fontSize = 12.sp, color = TextPrimary)
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text("Patient: ${app.patientName} (${app.patientPhone})", fontSize = 11.sp, color = TextSecondary)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val appToManage = selectedDetailApp
+                        selectedDetailApp = null
+                        if (appToManage != null && appToManage.status == AppointmentStatus.UPCOMING) {
+                            onAppointmentClick(appToManage.id)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                ) {
+                    Text(if (app.status == AppointmentStatus.UPCOMING) "Cancel / Reschedule" else "Done")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { selectedDetailApp = null }) {
+                    Text("Close")
+                }
+            }
+        )
     }
 
     Column(
@@ -428,37 +559,96 @@ fun BookingHistoryScreen(
             .background(AppBackground)
             .padding(16.dp)
     ) {
-        Text("Booking History", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = TextPrimary))
-        Text("View and manage all your healthcare appointments", style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary))
+        Text("Doctor Visit History", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = TextPrimary))
+        Text("Saved consultation visits and appointment history", style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary))
 
         Spacer(Modifier.height(12.dp))
 
-        TabRow(selectedTabIndex = selectedTab) {
-            Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Upcoming") })
-            Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Completed") })
-            Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("Cancelled") })
+        ScrollableTabRow(selectedTabIndex = selectedTab, edgePadding = 0.dp) {
+            Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("All Visits (${historyList.size})") })
+            Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Upcoming") })
+            Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("Completed") })
+            Tab(selected = selectedTab == 3, onClick = { selectedTab = 3 }, text = { Text("Cancelled") })
         }
 
         Spacer(Modifier.height(12.dp))
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(filteredApps) { app ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp)
-                        .clickable { onAppointmentClick(app.id) },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = CardSurface)
+        if (filteredApps.isEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 20.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = CardSurface)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(app.doctorName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                            Text(app.status.name, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (app.status == AppointmentStatus.UPCOMING) PrimaryBlue else TextMuted)
+                    Icon(Icons.Default.EventNote, contentDescription = null, tint = TextMuted, modifier = Modifier.size(48.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text("No Doctor Visit History Found", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = TextPrimary))
+                    Text("Booked consultations and visit records will automatically be saved here.", fontSize = 12.sp, color = TextSecondary)
+                }
+            }
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(filteredApps) { app ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                            .clickable { selectedDetailApp = app },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardSurface)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(app.doctorName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = when (app.status) {
+                                        AppointmentStatus.UPCOMING -> SurfaceLightBlue
+                                        AppointmentStatus.COMPLETED -> TealLight
+                                        AppointmentStatus.CANCELLED -> EmergencyRedLight
+                                    }
+                                ) {
+                                    Text(
+                                        text = app.status.name,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = when (app.status) {
+                                            AppointmentStatus.UPCOMING -> PrimaryBlue
+                                            AppointmentStatus.COMPLETED -> SecondaryTeal
+                                            AppointmentStatus.CANCELLED -> EmergencyRed
+                                        }
+                                    )
+                                }
+                            }
+
+                            Text("${app.doctorSpecialization} • ${app.hospitalName}", fontSize = 12.sp, color = TextSecondary)
+
+                            Spacer(Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("${app.date} • ${app.timeSlot}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SecondaryTeal)
+
+                                if (!app.tokenNumber.isNullOrBlank()) {
+                                    Surface(shape = RoundedCornerShape(6.dp), color = SurfaceLightBlue) {
+                                        Text("Token: ${app.tokenNumber}", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PrimaryBlue)
+                                    }
+                                }
+                            }
                         }
-                        Text(app.hospitalName, fontSize = 12.sp, color = TextSecondary)
-                        Spacer(Modifier.height(8.dp))
-                        Text("${app.date} • ${app.timeSlot}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SecondaryTeal)
                     }
                 }
             }

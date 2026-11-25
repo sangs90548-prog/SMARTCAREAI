@@ -147,12 +147,15 @@ fun PatientProfileScreen(
     viewModel: SmartCareViewModel
 ) {
     val profile by viewModel.patientProfile.collectAsState()
+    val isSaving by viewModel.profileSaving.collectAsState()
+    val profileMessage by viewModel.profileMessage.collectAsState()
 
-    var name by remember { mutableStateOf(profile.name) }
-    var phone by remember { mutableStateOf(profile.phone) }
-    var email by remember { mutableStateOf(profile.email) }
-    var emergencyContact by remember { mutableStateOf(profile.emergencyContact) }
-    var bloodType by remember { mutableStateOf(profile.bloodType) }
+    var name by remember(profile.name) { mutableStateOf(profile.name) }
+    var phone by remember(profile.phone) { mutableStateOf(profile.phone) }
+    var email by remember(profile.email) { mutableStateOf(profile.email) }
+    var emergencyContact by remember(profile.emergencyContact) { mutableStateOf(profile.emergencyContact) }
+    var bloodType by remember(profile.bloodType) { mutableStateOf(profile.bloodType) }
+    var ageText by remember(profile.age) { mutableStateOf(profile.age.toString()) }
 
     Column(
         modifier = Modifier
@@ -165,6 +168,38 @@ fun PatientProfileScreen(
 
         Spacer(Modifier.height(16.dp))
 
+        if (profileMessage != null) {
+            val isSuccess = profileMessage!!.contains("successfully", ignoreCase = true) || profileMessage!!.contains("saved", ignoreCase = true)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isSuccess) TealLight else EmergencyRedLight
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.ErrorOutline,
+                        contentDescription = null,
+                        tint = if (isSuccess) SecondaryTeal else EmergencyRed
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = profileMessage!!,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = if (isSuccess) SecondaryTeal else EmergencyRed,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+        }
+
         OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Full Name") }, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Phone Number") }, modifier = Modifier.fillMaxWidth())
@@ -173,21 +208,43 @@ fun PatientProfileScreen(
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(value = emergencyContact, onValueChange = { emergencyContact = it }, label = { Text("Emergency Contact Phone") }, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = bloodType, onValueChange = { bloodType = it }, label = { Text("Blood Group") }, modifier = Modifier.fillMaxWidth())
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(value = bloodType, onValueChange = { bloodType = it }, label = { Text("Blood Group") }, modifier = Modifier.weight(1f))
+            OutlinedTextField(value = ageText, onValueChange = { ageText = it }, label = { Text("Age") }, modifier = Modifier.weight(1f))
+        }
 
         Spacer(Modifier.weight(1f))
 
         Button(
             onClick = {
-                viewModel.updatePatientProfile(name, phone, email, emergencyContact, bloodType)
+                val parsedAge = ageText.toIntOrNull() ?: profile.age
+                viewModel.savePatientProfile(
+                    name = name,
+                    phone = phone,
+                    email = email,
+                    emergencyContact = emergencyContact,
+                    bloodType = bloodType,
+                    age = parsedAge,
+                    onSuccess = {},
+                    onError = {}
+                )
             },
+            enabled = !isSaving,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
         ) {
-            Text("Save Profile Updates", fontWeight = FontWeight.Bold)
+            if (isSaving) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Save Profile Updates", fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -198,7 +255,9 @@ fun SettingsPrivacyScreen(
     viewModel: SmartCareViewModel,
     onNavigateToAccessibility: () -> Unit
 ) {
+    val strings = LocalAppStrings.current
     val notifEnabled by viewModel.notificationsEnabled.collectAsState()
+    val currentLang by viewModel.selectedLanguage.collectAsState()
 
     Column(
         modifier = Modifier
@@ -206,10 +265,39 @@ fun SettingsPrivacyScreen(
             .background(AppBackground)
             .padding(16.dp)
     ) {
-        Text("Settings & Privacy", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = TextPrimary))
-        Text("Application preferences & data controls", style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary))
+        Text(strings.settingsTitle, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = TextPrimary))
+        Text("Application preferences & language controls", style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary))
 
         Spacer(Modifier.height(16.dp))
+
+        // Language Switcher Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSurface)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(strings.appLanguageLabel, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                Spacer(Modifier.height(8.dp))
+                val langs = listOf("English", "தமிழ்", "Hindi")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    langs.forEach { l ->
+                        val isSel = (currentLang == l) || (l == "English" && currentLang.isNullOrBlank())
+                        FilterChip(
+                            selected = isSel,
+                            onClick = { viewModel.selectLanguage(l) },
+                            label = { Text(l, fontWeight = FontWeight.Bold) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = PrimaryBlue,
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
+                }
+            }
+        }
 
         Card(
             modifier = Modifier.fillMaxWidth(),

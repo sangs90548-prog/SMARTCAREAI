@@ -2,6 +2,11 @@ package com.example.smartcareai.navigation
 
 sealed class Screen(val route: String, val title: String) {
 
+    // Auth & Onboarding Flow
+    object LanguageSelection : Screen("language_selection", "Select Language")
+    object Login : Screen("login", "Log In")
+    object Register : Screen("register", "Register")
+
     // Group 1: Hospital Discovery
     object WelcomePreferences : Screen("welcome_preferences", "Welcome & Preferences")
     object SearchHospitals : Screen("search_hospitals", "Search Hospitals")
@@ -60,6 +65,9 @@ sealed class Screen(val route: String, val title: String) {
     companion object {
         fun getScreenTitle(route: String): String {
             return when (route) {
+                LanguageSelection.route -> LanguageSelection.title
+                Login.route -> Login.title
+                Register.route -> Register.title
                 WelcomePreferences.route -> WelcomePreferences.title
                 SearchHospitals.route -> SearchHospitals.title
                 HospitalList.route -> HospitalList.title
